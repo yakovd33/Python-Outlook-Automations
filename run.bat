@@ -1,3 +1,3 @@
 @echo off
-"C:\Python35\python.exe" C:\Users\yakov\Desktop\outlook\send.py"
+"C:\Users\USER\AppData\Local\Programs\Python\Python39\python.exe" C:\Users\USER\Desktop\outlook\send.py"
 pause

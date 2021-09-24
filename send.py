@@ -1,9 +1,10 @@
 from time import sleep
 import win32com.client as client
-import extract_msg
 import tkinter as tk
+from tkinter import filedialog, Text
 from tkcalendar import *
-from bs4 import BeautifulSoup
+import os
+import threading
 
 username = "careers@hunted.co.il"
 
@@ -20,93 +21,54 @@ def divide_chunks(l, n):
     for i in range(0, len(l), n): 
         yield l[i:i + n]
 
-def send_mails (wait) :
+def send_mails (wait, html) :
     sleep(int(wait))
 
-    # Convert message.htm file to utf-8
-    try :
-        from pathlib import Path
-        path = Path("message.htm")
-        path.write_text(path.read_text(encoding="utf16"), encoding="utf8")
+    # with open('message.htm', 'rb') as f:
+    #     html = f.read()
 
-    except Exception :
-        pass
+    with open('emails.txt', 'r', newline="") as f :
+        # reader = csv.reader(f)
 
+        lines = []
+        for line in f:
+            lines.append(line)
 
-    with open('message.htm', 'rb') as f:
-        html = f.read()
-        html_str = str(html)
+        chunks = list(divide_chunks(lines, 98))
 
-        with open('emails.txt', 'r', newline="") as f :
-            # reader = csv.reader(f)
+        outlook = client.Dispatch('Outlook.Application')            
+        global email
+        account = outlook.Session.Accounts[email]
+        print(email)
 
-            lines = []
-            for line in f:
-                lines.append(line)
+        for chunk in chunks :
+            recipients = ""
 
-            chunks = list(divide_chunks(lines, 98))
+            for person in chunk :
+                recipients += person.rstrip() + ";"
 
-            outlook = client.Dispatch('Outlook.Application')            
-            global email
-            account = outlook.Session.Accounts[email]
-            print(email)
+            message = outlook.CreateItem(0)
+            message.BCC = recipients
+            message.subject = subject
+            message.HTMLbody = html
+            try :
+                message._oleobj_.Invoke(*(64209, 0, 8, 0, account))
+            except Exception :
+                try:
+                    raise TypeError("Email not found")
+                except:
+                    pass
+                
+            message.Send()
 
-            for chunk in chunks :
-                recipients = ""
+            from datetime import datetime
+            now = datetime.now()
+            print("sent messages: " + now.strftime("%H:%M:%S"))
 
-                for person in chunk :
-                    recipients += person.rstrip() + ";"
+            sleep(180)
+        print("Finished sending emails.")
 
-                # Fix images
-                import base64
-
-                soup = BeautifulSoup(html, "html.parser")
-                images = soup.findAll('img')
-
-                for image in images :
-                    image = image.get('src')
-                    
-                    if "message_files" in image :
-                        print(image)
-
-                        image = image.replace('file:///', '')
-                        
-                        with open(image, "rb") as image_file :
-                            encoded_string = base64.b64encode(image_file.read())
-                            
-                            if "png" in image :
-                                ext = "png"
-                            elif "gif" in image :
-                                ext = "gif"
-                            else :
-                                ext = "jpeg"
-
-                            new_pic = 'data:image/' + ext + ';base64, ' + str(encoded_string, 'utf-8')
-                            # html = html.replace(bytes(image, 'utf-8'), bytes(new_pic, 'utf-8'))
-
-                message = outlook.CreateItem(0)
-                message.BCC = recipients
-                message.subject = subject
-                message.HTMLbody = html
-
-                try :
-                    message._oleobj_.Invoke(*(64209, 0, 8, 0, account))
-                except Exception :
-                    try:
-                        raise TypeError("Email not found")
-                    except :
-                        pass
-                    
-                message.Send()
-
-                from datetime import datetime
-                now = datetime.now()
-                print("sent messages: " + now.strftime("%H:%M:%S"))
-
-                sleep(180)
-            print("Finished sending emails.")
-
-            # input("Press Enter to continue...")
+        # input("Press Enter to continue...")
 
 def mail_thread():
 
@@ -131,7 +93,12 @@ def mail_thread():
         wait = 0
 
     root.destroy()
-    send_mails(wait)
+
+    with open('message.htm', 'r', encoding='utf-8') as f :
+        html = f.read()
+        send_mails(wait, html)
+
+    # send_mails(wait)
 
 canvas = tk.Canvas(root, height=0, width=300, bg="#ebebeb")
 canvas.pack()
